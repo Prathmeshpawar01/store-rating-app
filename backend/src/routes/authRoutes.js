@@ -7,7 +7,8 @@ const { registerSchema, loginSchema, changePasswordSchema } = require('../valida
 const auth = require('../controllers/authController');
 
 const router = express.Router();
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50 });
+// At most 20 failed login/sign-up attempts per IP every 15 minutes.
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
 
 router.post('/register', authLimiter, validateBody(registerSchema), asyncHandler(auth.register));
 router.post('/login', authLimiter, validateBody(loginSchema), asyncHandler(auth.login));

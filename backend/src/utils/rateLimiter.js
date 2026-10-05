@@ -3,7 +3,7 @@ const config = require('../config/env');
 
 /**
  * Minimal in-memory fixed-window rate limiter (per IP), used on auth endpoints
- * to slow down password guessing. Disabled while running tests.
+ * to slow down password guessing. Only failed attempts are counted. Disabled while running tests.
  * For multi-instance deployments use a shared store (e.g. Redis) instead.
  */
 const rateLimit = ({ windowMs = 15 * 60 * 1000, max = 20, message = 'Too many attempts, please try again later' } = {}) => {
@@ -24,11 +24,14 @@ const rateLimit = ({ windowMs = 15 * 60 * 1000, max = 20, message = 'Too many at
       entry = { count: 0, reset: now + windowMs };
       hits.set(key, entry);
     }
-    entry.count += 1;
-    if (entry.count > max) {
+    if (entry.count >= max) {
       res.set('Retry-After', String(Math.ceil((entry.reset - now) / 1000)));
       return next(new ApiError(429, message));
     }
+    // Only failed attempts (4xx/5xx) count towards the limit.
+    res.on('finish', () => {
+      if (res.statusCode >= 400) entry.count += 1;
+    });
     return next();
   };
 };
